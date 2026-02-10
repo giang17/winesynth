@@ -4,6 +4,7 @@
 
 #include "vstgui/lib/cframe.h"
 #include "vstgui/lib/controls/ctextlabel.h"
+#include "vstgui/lib/cvstguitimer.h"
 #include "vstgui/lib/platform/platformfactory.h"
 #include "vstgui/lib/platform/win32/win32factory.h"
 
@@ -114,6 +115,13 @@ bool PLUGIN_API Editor::open (void* parent, const PlatformType& platformType)
     frame->addView (envLabel);
 
     frame->open (parent, platformType);
+
+    // Under Wine, the initial WM_PAINT arrives before D2D1 is fully
+    // initialized, leaving framebuffer garbage visible. Schedule a
+    // delayed full redraw to ensure proper rendering.
+    CFrame* f = frame;
+    Call::later ([f] () { f->invalid (); }, 100);
+
     return true;
 }
 
