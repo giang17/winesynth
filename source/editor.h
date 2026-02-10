@@ -20,7 +20,7 @@ public:
     void valueChanged (VSTGUI::CControl* pControl) SMTG_OVERRIDE;
 
 private:
-    void updateWaveformSelection (int waveType);
+    void selectWaveform (int waveType);
 
     static const int kEditorWidth = 620;
     static const int kEditorHeight = 420;

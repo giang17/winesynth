@@ -83,7 +83,7 @@ bool PLUGIN_API Editor::open (void* parent, const PlatformType& platformType)
     {
         waveButtons[i] = new WaveformButton (
             CRect (btnX + i * (btnW + btnGap), btnY, btnX + i * (btnW + btnGap) + btnW, btnY + btnH),
-            this, kWaveformId, i, i == 0);
+            this, i);
         frame->addView (waveButtons[i]);
     }
 
@@ -144,28 +144,32 @@ void Editor::valueChanged (CControl* pControl)
         return;
 
     int32_t tag = pControl->getTag ();
-    float value = pControl->getValue ();
 
+    // Waveform buttons have internal tags kWaveBtnTagBase + waveType
+    if (tag >= kWaveBtnTagBase && tag < kWaveBtnTagBase + kNumWaveforms)
+    {
+        int waveType = tag - kWaveBtnTagBase;
+        selectWaveform (waveType);
+        return;
+    }
+
+    // All other controls: forward value to controller
+    float value = pControl->getValue ();
     controller->setParamNormalized (tag, value);
     controller->performEdit (tag, value);
-
-    // Update waveform display and button selection when waveform changes
-    if (tag == kWaveformId)
-    {
-        int waveType = (int)(value * (kNumWaveforms - 1) + 0.5f);
-        updateWaveformSelection (waveType);
-    }
 }
 
-void Editor::updateWaveformSelection (int waveType)
+void Editor::selectWaveform (int waveType)
 {
-    for (int i = 0; i < 4; i++)
-    {
-        if (waveButtons[i])
-            waveButtons[i]->setSelected (i == waveType);
-    }
     if (waveDisplay)
         waveDisplay->setWaveform (waveType);
+
+    if (controller)
+    {
+        float normValue = (float)waveType / (float)(kNumWaveforms - 1);
+        controller->setParamNormalized (kWaveformId, normValue);
+        controller->performEdit (kWaveformId, normValue);
+    }
 }
 
 } // namespace WineSynth

@@ -140,40 +140,36 @@ private:
 };
 
 //------------------------------------------------------------------------
-// WaveformButton — selectable button with waveform preview
+// WaveformButton — simple clickable waveform selector
+// Each button has a unique tag (kWaveBtnTagBase + waveType).
+// Selection state is managed entirely by the Editor.
 //------------------------------------------------------------------------
+enum { kWaveBtnTagBase = 1000 };
+
 class WaveformButton : public CControl
 {
 public:
-    WaveformButton (const CRect& r, IControlListener* listener, int32_t tag,
-                    int waveType, bool selected = false)
-        : CControl (r, listener, tag), waveType (waveType), selected (selected)
+    WaveformButton (const CRect& r, IControlListener* listener, int waveType)
+        : CControl (r, listener, kWaveBtnTagBase + waveType)
+        , waveType (waveType)
     {
     }
 
-    void setSelected (bool sel)
-    {
-        if (selected != sel)
-        {
-            selected = sel;
-            invalid ();
-        }
-    }
-    bool getSelected () const { return selected; }
+    int getWaveType () const { return waveType; }
 
     void draw (CDrawContext* context) override
     {
         context->setDrawMode (kAntiAliasing);
         auto r = getViewSize ();
 
-        // Button background
-        context->setFillColor (selected ? CColor (40, 55, 40, 255) : kButtonBg);
+        // Always draw the same: dark bg + gray border + gray waveform
+        context->setFillColor (kButtonBg);
         context->drawRect (r, kDrawFilled);
-        context->setFrameColor (selected ? kActiveStroke : kButtonStroke);
-        context->setLineWidth (selected ? 2.0 : 1.0);
+        context->setFrameColor (kButtonStroke);
+        context->setLineWidth (1.0);
         context->drawRect (r, kDrawStroked);
 
-        // Draw waveform preview
+        // Waveform preview
         if (auto path = owned (context->createGraphicsPath ()))
         {
             auto inset = 6.0;
@@ -195,24 +191,16 @@ public:
 
                 switch (waveType)
                 {
-                    case kWaveSine:
-                        sample = sin (phase);
-                        break;
-                    case kWaveSaw:
-                        sample = 2.0 * (t - 0.5);
-                        break;
-                    case kWaveSquare:
-                        sample = t < 0.5 ? 1.0 : -1.0;
-                        break;
-                    case kWaveTriangle:
-                        sample = 4.0 * fabs (t - 0.5) - 1.0;
-                        break;
+                    case kWaveSine:    sample = sin (phase); break;
+                    case kWaveSaw:     sample = 2.0 * (t - 0.5); break;
+                    case kWaveSquare:  sample = t < 0.5 ? 1.0 : -1.0; break;
+                    case kWaveTriangle: sample = 4.0 * fabs (t - 0.5) - 1.0; break;
                 }
 
                 path->addLine (CPoint (left + t * w, cy - sample * amp));
             }
 
-            context->setFrameColor (selected ? kWaveformColor : kLabelColor);
+            context->setFrameColor (kLabelColor);
             context->setLineWidth (1.5);
             context->drawGraphicsPath (path, CDrawContext::kPathStroked);
         }
@@ -224,9 +212,9 @@ public:
     {
         if (buttons.isLeftButton ())
         {
+            // Toggle between 0/1 so valueChanged always fires
             beginEdit ();
-            // Normalize waveType to 0..1 range for 4 waveforms
-            setValue ((float)waveType / (float)(kNumWaveforms - 1));
+            setValue (getValue () < 0.5f ? 1.f : 0.f);
             valueChanged ();
             endEdit ();
             return kMouseEventHandled;
@@ -237,7 +225,6 @@ public:
     CLASS_METHODS (WaveformButton, CControl)
 private:
     int waveType;
-    bool selected;
 };
 
 //------------------------------------------------------------------------
