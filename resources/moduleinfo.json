@@ -1,0 +1,42 @@
+{
+  "Name": "WineSynth",
+  "Version": "1.0.0.1",
+  "Factory Info": {
+    "Vendor": "giang17",
+    "URL": "https://github.com/giang17",
+    "E-Mail": "",
+    "Flags": {
+      "Unicode": true,
+      "Classes Discardable": false,
+      "Component Non Discardable": false
+    }
+  },
+  "Classes": [
+    {
+      "CID": "2B3C4D5E6F7A8B9C0D1E2F3A4B5C6D7E",
+      "Category": "Audio Module Class",
+      "Name": "WineSynth",
+      "Vendor": "giang17",
+      "Version": "1.0.0.1",
+      "SDKVersion": "VST 3.7.9",
+      "Sub Categories": [
+        "Instrument",
+        "Synth"
+      ],
+      "Class Flags": 1,
+      "Cardinality": 2147483647,
+      "Snapshots": []
+    },
+    {
+      "CID": "8F9A0B1C2D3E4F5A6B7C8D9E0F1A2B3C",
+      "Category": "Component Controller Class",
+      "Name": "WineSynth Controller",
+      "Vendor": "giang17",
+      "Version": "1.0.0.1",
+      "SDKVersion": "VST 3.7.9",
+      "Class Flags": 0,
+      "Cardinality": 2147483647,
+      "Snapshots": []
+    }
+  ]
+}
