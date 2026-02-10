@@ -1,0 +1,6 @@
+build-mingw/
+build/
+cmake-build-*/
+.idea/
+*.swp
+*~
