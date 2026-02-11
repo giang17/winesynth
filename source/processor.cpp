@@ -44,6 +44,8 @@ tresult PLUGIN_API Processor::setActive (TBool state)
         envState = kIdle;
         envLevel = 0.0;
         noteOn = false;
+        ic1eq = 0.0;
+        ic2eq = 0.0;
     }
     return AudioEffect::setActive (state);
 }
@@ -97,8 +99,9 @@ tresult PLUGIN_API Processor::process (ProcessData& data)
                     switch (paramQueue->getParameterId ())
                     {
                         case kGainId:      fGain = (float)value; break;
-                        case kFrequencyId: fFrequency = (float)value; break;
+                        case kCutoffId:    fCutoff = (float)value; break;
                         case kFineId:      fFine = (float)value; break;
+                        case kResonanceId: fResonance = (float)value; break;
                         case kWaveformId:  iWaveform = std::min ((int32)(value * kNumWaveforms), (int32)(kNumWaveforms - 1)); break;
                         case kAttackId:    fAttack = (float)value; break;
                         case kReleaseId:   fRelease = (float)value; break;
@@ -159,14 +162,19 @@ tresult PLUGIN_API Processor::process (ProcessData& data)
         return kResultOk;
     }
 
-    // Calculate final frequency (knob 20..20000 Hz exponential + fine tuning)
-    // MIDI notes only trigger the envelope, pitch comes from the knob
-    float baseFreq = 20.0f * powf (1000.0f, fFrequency);
-
+    // Calculate oscillator frequency from MIDI note + fine tuning
     float fineOffset = (fFine - 0.5f) * 200.0f;  // -100..+100 cent
-    float finalFreq = baseFreq * powf (2.0f, fineOffset / 1200.0f);
+    float finalFreq = noteFrequency * powf (2.0f, fineOffset / 1200.0f);
 
     double phaseInc = 2.0 * M_PI * finalFreq / sampleRate;
+
+    // Cytomic SVF filter coefficients (stable at all frequencies)
+    double cutoffHz = 20.0 * pow (1000.0, (double)fCutoff);  // 20..20000 Hz
+    cutoffHz = std::min (cutoffHz, sampleRate * 0.49);
+    double g = tan (M_PI * cutoffHz / sampleRate);
+    double k = 2.0 - 2.0 * (double)fResonance * 0.95;  // damping: 2.0 (no reso) .. 0.1 (max reso)
+    double a1 = 1.0 / (1.0 + g * (g + k));
+    double a2 = g * a1;
 
     for (int32 s = 0; s < numSamples; s++)
     {
@@ -198,7 +206,17 @@ tresult PLUGIN_API Processor::process (ProcessData& data)
         float sample = 0.f;
         if (envLevel > 0.0)
         {
-            sample = (float)(generateSample (phase, iWaveform) * fGain * envLevel);
+            double raw = generateSample (phase, iWaveform);
+
+            // Cytomic SVF low-pass (topology-preserving transform)
+            double v0 = raw;
+            double hp = a1 * (v0 - k * ic1eq - ic2eq);
+            double bp = a2 * (v0 - k * ic1eq - ic2eq) + ic1eq;
+            double lp = a2 * ic1eq + ic2eq + g * hp;
+            ic1eq = 2.0 * bp - ic1eq;
+            ic2eq = 2.0 * lp - ic2eq;
+
+            sample = (float)(lp * fGain * envLevel);
             phase += phaseInc;
             if (phase >= 2.0 * M_PI)
                 phase -= 2.0 * M_PI;
@@ -218,8 +236,9 @@ tresult PLUGIN_API Processor::setState (IBStream* state)
     float f; int32 i;
 
     if (!streamer.readFloat (f)) return kResultFalse; fGain = f;
-    if (!streamer.readFloat (f)) return kResultFalse; fFrequency = f;
+    if (!streamer.readFloat (f)) return kResultFalse; fCutoff = f;
     if (!streamer.readFloat (f)) return kResultFalse; fFine = f;
+    if (!streamer.readFloat (f)) return kResultFalse; fResonance = f;
     if (!streamer.readInt32 (i)) return kResultFalse; iWaveform = i;
     if (!streamer.readFloat (f)) return kResultFalse; fAttack = f;
     if (!streamer.readFloat (f)) return kResultFalse; fRelease = f;
@@ -233,8 +252,9 @@ tresult PLUGIN_API Processor::getState (IBStream* state)
     IBStreamer streamer (state, kLittleEndian);
 
     streamer.writeFloat (fGain);
-    streamer.writeFloat (fFrequency);
+    streamer.writeFloat (fCutoff);
     streamer.writeFloat (fFine);
+    streamer.writeFloat (fResonance);
     streamer.writeInt32 (iWaveform);
     streamer.writeFloat (fAttack);
     streamer.writeFloat (fRelease);

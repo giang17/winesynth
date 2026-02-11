@@ -2,8 +2,9 @@
 
 enum {
     kGainId = 0,
-    kFrequencyId,
+    kCutoffId,
     kFineId,
+    kResonanceId,
     kWaveformId,
     kAttackId,
     kReleaseId,

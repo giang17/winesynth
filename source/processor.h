@@ -29,8 +29,9 @@ private:
 
     // Parameters
     float fGain = 0.5f;
-    float fFrequency = 0.5f;   // normalized
+    float fCutoff = 1.0f;      // normalized (1.0 = fully open)
     float fFine = 0.5f;        // normalized
+    float fResonance = 0.0f;   // normalized
     int32_t iWaveform = 0;
     float fAttack = 0.05f;     // normalized
     float fRelease = 0.3f;     // normalized
@@ -39,6 +40,10 @@ private:
     // DSP state
     double phase = 0.0;
     double sampleRate = 44100.0;
+
+    // SVF filter state (Cytomic TPT)
+    double ic1eq = 0.0;
+    double ic2eq = 0.0;
 
     // Envelope
     EnvState envState = kIdle;

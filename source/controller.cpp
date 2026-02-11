@@ -23,13 +23,17 @@ tresult PLUGIN_API Controller::initialize (FUnknown* context)
     parameters.addParameter (STR16 ("Gain"), nullptr, 0, 0.5,
                              ParameterInfo::kCanAutomate, kGainId);
 
-    // Frequency (0..1 → 20..2000 Hz, default 0.5)
-    parameters.addParameter (STR16 ("Frequency"), STR16 ("Hz"), 0, 0.5,
-                             ParameterInfo::kCanAutomate, kFrequencyId);
+    // Cutoff (0..1 → 20..20000 Hz, default 1.0 = fully open)
+    parameters.addParameter (STR16 ("Cutoff"), STR16 ("Hz"), 0, 1.0,
+                             ParameterInfo::kCanAutomate, kCutoffId);
 
     // Fine tuning (0..1 → -100..+100 cent, default 0.5 = 0 cent)
     parameters.addParameter (STR16 ("Fine"), STR16 ("ct"), 0, 0.5,
                              ParameterInfo::kCanAutomate, kFineId);
+
+    // Resonance (0..1, default 0.0 = no resonance)
+    parameters.addParameter (STR16 ("Resonance"), nullptr, 0, 0.0,
+                             ParameterInfo::kCanAutomate, kResonanceId);
 
     // Waveform (list: Sine, Saw, Square, Triangle)
     auto* waveformParam = new StringListParameter (STR16 ("Waveform"), kWaveformId);
@@ -66,10 +70,13 @@ tresult PLUGIN_API Controller::setComponentState (IBStream* state)
     setParamNormalized (kGainId, f);
 
     if (!streamer.readFloat (f)) return kResultFalse;
-    setParamNormalized (kFrequencyId, f);
+    setParamNormalized (kCutoffId, f);
 
     if (!streamer.readFloat (f)) return kResultFalse;
     setParamNormalized (kFineId, f);
+
+    if (!streamer.readFloat (f)) return kResultFalse;
+    setParamNormalized (kResonanceId, f);
 
     if (!streamer.readInt32 (i)) return kResultFalse;
     setParamNormalized (kWaveformId, (float)i / (float)(kNumWaveforms - 1));

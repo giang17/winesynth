@@ -57,18 +57,23 @@ bool PLUGIN_API Editor::open (void* parent, const PlatformType& platformType)
     };
 
     // Gain
-    makeLabel (30, 38, 80, "Gain");
-    auto gainKnob = new SynthKnobView (CRect (40, 56, 110, 126), this, kGainId, 0.5f);
+    makeLabel (15, 38, 80, "Gain");
+    auto gainKnob = new SynthKnobView (CRect (25, 56, 95, 126), this, kGainId, 0.5f);
     frame->addView (gainKnob);
 
-    // Frequency
-    makeLabel (150, 38, 100, "Frequency");
-    auto freqKnob = new SynthKnobView (CRect (165, 56, 235, 126), this, kFrequencyId, 0.5f);
-    frame->addView (freqKnob);
+    // Cutoff
+    makeLabel (115, 38, 80, "Cutoff");
+    auto cutoffKnob = new SynthKnobView (CRect (125, 56, 195, 126), this, kCutoffId, 1.0f);
+    frame->addView (cutoffKnob);
+
+    // Resonance
+    makeLabel (215, 38, 80, "Reso");
+    auto resoKnob = new SynthKnobView (CRect (225, 56, 295, 126), this, kResonanceId, 0.0f);
+    frame->addView (resoKnob);
 
     // Fine
-    makeLabel (280, 38, 80, "Fine");
-    auto fineKnob = new SynthKnobView (CRect (290, 56, 360, 126), this, kFineId, 0.5f);
+    makeLabel (315, 38, 80, "Fine");
+    auto fineKnob = new SynthKnobView (CRect (325, 56, 395, 126), this, kFineId, 0.5f);
     frame->addView (fineKnob);
 
     // --- Waveform Selector ---
