@@ -159,13 +159,9 @@ tresult PLUGIN_API Processor::process (ProcessData& data)
         return kResultOk;
     }
 
-    // Calculate final frequency (base freq from knob + fine tuning)
-    // When MIDI note is active, use note frequency; otherwise use knob frequency
-    float baseFreq;
-    if (noteOn || envState != kIdle)
-        baseFreq = noteFrequency;
-    else
-        baseFreq = 20.0f * powf (100.0f, fFrequency);
+    // Calculate final frequency (knob 20..20000 Hz exponential + fine tuning)
+    // MIDI notes only trigger the envelope, pitch comes from the knob
+    float baseFreq = 20.0f * powf (1000.0f, fFrequency);
 
     float fineOffset = (fFine - 0.5f) * 200.0f;  // -100..+100 cent
     float finalFreq = baseFreq * powf (2.0f, fineOffset / 1200.0f);
