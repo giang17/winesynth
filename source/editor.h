@@ -21,12 +21,19 @@ public:
 
 private:
     void selectWaveform (int waveType);
+    void flushDisplayUpdate ();
 
     static const int kEditorWidth = 620;
     static const int kEditorHeight = 420;
 
     WaveformButton* waveButtons[4] = {};
     WaveformDisplay* waveDisplay = nullptr;
+
+    // Deferred display update (avoid redraw conflicts while dragging knobs)
+    float pendingCutoff = 1.0f;
+    float pendingResonance = 0.0f;
+    bool displayDirty = false;
+    VSTGUI::SharedPointer<VSTGUI::CVSTGUITimer> displayTimer;
 };
 
 } // namespace WineSynth

@@ -127,11 +127,22 @@ bool PLUGIN_API Editor::open (void* parent, const PlatformType& platformType)
     CFrame* f = frame;
     Call::later ([f] () { f->invalid (); }, 100);
 
+    // Timer for deferred waveform display updates (~15 fps)
+    displayTimer = makeOwned<CVSTGUITimer> ([this] (CVSTGUITimer*) {
+        flushDisplayUpdate ();
+    }, 66);
+
     return true;
 }
 
 void PLUGIN_API Editor::close ()
 {
+    if (displayTimer)
+    {
+        displayTimer->stop ();
+        displayTimer = nullptr;
+    }
+
     waveDisplay = nullptr;
     for (int i = 0; i < 4; i++)
         waveButtons[i] = nullptr;
@@ -140,6 +151,16 @@ void PLUGIN_API Editor::close ()
     {
         frame->forget ();
         frame = nullptr;
+    }
+}
+
+void Editor::flushDisplayUpdate ()
+{
+    if (displayDirty && waveDisplay)
+    {
+        waveDisplay->setCutoff (pendingCutoff);
+        waveDisplay->setResonance (pendingResonance);
+        displayDirty = false;
     }
 }
 
@@ -162,6 +183,14 @@ void Editor::valueChanged (CControl* pControl)
     float value = pControl->getValue ();
     controller->setParamNormalized (tag, value);
     controller->performEdit (tag, value);
+
+    // Update waveform display for filter parameters (delayed to avoid redraw conflicts)
+    if (waveDisplay && (tag == kCutoffId || tag == kResonanceId))
+    {
+        pendingCutoff = (tag == kCutoffId) ? value : pendingCutoff;
+        pendingResonance = (tag == kResonanceId) ? value : pendingResonance;
+        displayDirty = true;
+    }
 }
 
 void Editor::selectWaveform (int waveType)
