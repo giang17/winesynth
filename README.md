@@ -52,7 +52,6 @@ Several workarounds are needed for VSTGUI plugins running under Wine:
 
 - **REAPER** under Wine 11.0/11.1
 - **FL Studio** under Wine 11.0/11.1
-- Ubuntu Linux with NVIDIA RTX 2000 Ada
 
 ## License
 
