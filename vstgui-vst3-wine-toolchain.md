@@ -552,7 +552,7 @@ applications. We maintain 14 patches (v5.0-stable) that fix:
 | 14 | Straight line outline anti-aliasing | Visual quality |
 
 Patches are available in `patches/v5-full/` (against Wine 11.1) and
-`patches/v5-full-11.0/` (rebased for Wine 11.0 stable).
+`patches/v5-full-11.0/` (rebased for Wine 11.0 stable). See https://github.com/robbert-vdh/yabridge/issues/413#issuecomment-3868060550 for more information.
 
 For detailed technical documentation, see `docs/d2d1-open-issues-and-progress.md`.
 
