@@ -7,6 +7,7 @@ namespace WineSynth {
 
 class WaveformButton;
 class WaveformDisplay;
+class LiveOscilloscopeView;
 
 class Editor : public Steinberg::Vst::VSTGUIEditor, public VSTGUI::IControlListener
 {
@@ -24,10 +25,11 @@ private:
     void flushDisplayUpdate ();
 
     static const int kEditorWidth = 620;
-    static const int kEditorHeight = 420;
+    static const int kEditorHeight = 540;
 
     WaveformButton* waveButtons[4] = {};
     WaveformDisplay* waveDisplay = nullptr;
+    LiveOscilloscopeView* liveScope = nullptr;
 
     // Deferred display update (avoid redraw conflicts while dragging knobs)
     float pendingCutoff = 1.0f;

@@ -6,6 +6,7 @@
 #include "vstgui/lib/cdrawcontext.h"
 #include "vstgui/lib/cgraphicspath.h"
 #include "vstgui/lib/ccolor.h"
+#include "vstgui/lib/cvstguitimer.h"
 
 #include <cmath>
 
@@ -414,6 +415,118 @@ private:
     int waveType = kWaveSine;
     float cutoff = 1.0f;
     float resonance = 0.0f;
+};
+
+//------------------------------------------------------------------------
+// LiveOscilloscopeView — timer-driven animated oscilloscope for memory leak testing.
+// Creates a new CGraphicsPath on every draw() call (~60 fps).
+//------------------------------------------------------------------------
+class LiveOscilloscopeView : public CView
+{
+public:
+    LiveOscilloscopeView (const CRect& size)
+        : CView (size) {}
+
+    ~LiveOscilloscopeView () override
+    {
+        stop ();
+    }
+
+    void start ()
+    {
+        if (!timer)
+        {
+            timer = makeOwned<CVSTGUITimer> ([this] (CVSTGUITimer*) {
+                animPhase += 0.05;
+                invalid ();
+            }, 16); // ~60 fps
+        }
+    }
+
+    void stop ()
+    {
+        if (timer)
+        {
+            timer->stop ();
+            timer = nullptr;
+        }
+    }
+
+    void setWaveform (int type) { waveType = type; }
+
+    void draw (CDrawContext* context) override
+    {
+        context->setDrawMode (kAntiAliasing);
+        auto r = getViewSize ();
+
+        // Background
+        context->setFillColor (kDisplayBg);
+        context->drawRect (r, kDrawFilled);
+
+        // Center line
+        auto cy = r.getCenter ().y;
+        context->setFrameColor (CColor (40, 60, 40, 255));
+        context->setLineWidth (0.5);
+        context->drawLine (CPoint (r.left + 5, cy), CPoint (r.right - 5, cy));
+
+        // Animated waveform — new path every frame
+        if (auto path = owned (context->createGraphicsPath ()))
+        {
+            auto inset = 10.0;
+            auto left = r.left + inset;
+            auto right = r.right - inset;
+            auto w = right - left;
+            auto amp = r.getHeight () * 0.38;
+            int segs = 200;
+
+            path->beginSubpath (CPoint (left, cy));
+            for (int i = 1; i <= segs; i++)
+            {
+                double t = (double)i / segs;
+                double phase = t * 4.0 * M_PI + animPhase;
+                double sample = 0.0;
+
+                switch (waveType)
+                {
+                    case kWaveSine:
+                        sample = sin (phase);
+                        break;
+                    case kWaveSaw:
+                        sample = 2.0 * fmod (phase / (2.0 * M_PI), 1.0) - 1.0;
+                        break;
+                    case kWaveSquare:
+                        sample = fmod (phase / (2.0 * M_PI), 1.0) < 0.5 ? 1.0 : -1.0;
+                        break;
+                    case kWaveTriangle:
+                        sample = 4.0 * fabs (fmod (phase / (2.0 * M_PI), 1.0) - 0.5) - 1.0;
+                        break;
+                }
+
+                // Modulation for visual interest
+                sample *= (0.8 + 0.2 * sin (t * 7.0 * M_PI + animPhase * 0.3));
+
+                CCoord px = left + t * w;
+                CCoord py = cy - sample * amp;
+                path->addLine (CPoint (px, py));
+            }
+
+            context->setFrameColor (kWaveformColor);
+            context->setLineWidth (2.0);
+            context->drawGraphicsPath (path, CDrawContext::kPathStroked);
+        }
+
+        // Frame border
+        context->setFrameColor (CColor (40, 50, 40, 255));
+        context->setLineWidth (1.0);
+        context->drawRect (r, kDrawStroked);
+
+        setDirty (false);
+    }
+
+private:
+    int waveType = kWaveSine;
+    double animPhase = 0.0;
+    SharedPointer<CVSTGUITimer> timer;
 };
 
 } // namespace WineSynth

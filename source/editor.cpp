@@ -119,6 +119,11 @@ bool PLUGIN_API Editor::open (void* parent, const PlatformType& platformType)
     envLabel->setHoriAlign (kLeftText);
     frame->addView (envLabel);
 
+    // --- Live Oscilloscope ---
+    makeLabel (20, 425, 160, "Live Oscilloscope");
+    liveScope = new LiveOscilloscopeView (CRect (20, 443, 600, 523));
+    frame->addView (liveScope);
+
     frame->open (parent, platformType);
 
     // Under Wine, the initial WM_PAINT arrives before D2D1 is fully
@@ -126,6 +131,10 @@ bool PLUGIN_API Editor::open (void* parent, const PlatformType& platformType)
     // delayed full redraw to ensure proper rendering.
     CFrame* f = frame;
     Call::later ([f] () { f->invalid (); }, 100);
+
+    // Start live oscilloscope animation
+    if (liveScope)
+        liveScope->start ();
 
     // Timer for deferred waveform display updates (~15 fps)
     displayTimer = makeOwned<CVSTGUITimer> ([this] (CVSTGUITimer*) {
@@ -141,6 +150,12 @@ void PLUGIN_API Editor::close ()
     {
         displayTimer->stop ();
         displayTimer = nullptr;
+    }
+
+    if (liveScope)
+    {
+        liveScope->stop ();
+        liveScope = nullptr;
     }
 
     waveDisplay = nullptr;
@@ -197,6 +212,8 @@ void Editor::selectWaveform (int waveType)
 {
     if (waveDisplay)
         waveDisplay->setWaveform (waveType);
+    if (liveScope)
+        liveScope->setWaveform (waveType);
 
     if (controller)
     {
