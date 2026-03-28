@@ -43,7 +43,8 @@ The `moduleinfo.json` is required for DAW plugin discovery. Without it, hosts ma
 
 Several workarounds are needed for VSTGUI plugins running under Wine:
 
-- **DirectComposition disabled** -- Wine does not implement DirectComposition; without this fix the plugin hangs ~10s on open
+- **DirectComposition enabled** -- Wine now implements `IDCompositionDesktopDevice`; VSTGUI uses DComp surfaces with dirty-rect clipping (`BeginDraw`/`EndDraw` + `BitBlt` presentation) for efficient partial redraws
+- **WM_ERASEBKGND subclass on parent HWND** -- prevents white flash when opening the plugin in a DAW (the parent window's background brush shows through before VSTGUI's child window finishes its first paint)
 - **Deferred initial redraw** -- D2D1 RenderTarget is not ready on the first `WM_PAINT` under Wine; a delayed `invalid()` after 100ms forces a clean repaint
 - **Deferred display updates** -- Simultaneous invalidation of knobs and the waveform display causes black rectangles under Wine; a `CVSTGUITimer` (66ms) buffers updates
 - **Explicit background clear** -- Custom `CControl` views must fill their background on every `draw()` call to avoid black artifacts
@@ -52,6 +53,7 @@ Several workarounds are needed for VSTGUI plugins running under Wine:
 
 - **REAPER** under Wine 11.0/11.1
 - **FL Studio** under Wine 11.0/11.1
+- **Wine's custom DComp implementation** (`IDCompositionDesktopDevice` with dirty-rect clipping)
 
 ## License
 
