@@ -20,9 +20,10 @@ Editor::Editor (void* controller)
 
 bool PLUGIN_API Editor::open (void* parent, const PlatformType& platformType)
 {
-    // Disable DirectComposition (not implemented in Wine)
-    if (auto win32Factory = getPlatformFactory ().asWin32Factory ())
-        win32Factory->disableDirectComposition ();
+    // DirectComposition is now supported via Wine's DComp DesktopDevice
+    // implementation (BeginDraw/EndDraw with dirty-rect clipping + BitBlt
+    // present). No need to disable it — let VSTGUI use the DComp path
+    // for proper partial redraws.
 
     CRect frameSize (0, 0, kEditorWidth, kEditorHeight);
     frame = new CFrame (frameSize, this);
