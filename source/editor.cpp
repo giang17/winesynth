@@ -126,6 +126,14 @@ bool PLUGIN_API Editor::open (void* parent, const PlatformType& platformType)
 
     frame->open (parent, platformType);
 
+    // Fix 2: Subclass parent HWND to suppress WM_ERASEBKGND (white flash on Wine).
+    // Reaper's FX panel has a white background brush that shows through before
+    // VSTGUI's child window completes its first D2D1 paint.
+    parentHwnd_ = (HWND)parent;
+    origParentWndProc_ = (WNDPROC)GetWindowLongPtrA (parentHwnd_, GWLP_WNDPROC);
+    SetPropA (parentHwnd_, "WineSynthEditor", (HANDLE)this);
+    SetWindowLongPtrA (parentHwnd_, GWLP_WNDPROC, (LONG_PTR)parentSubclassProc);
+
     // Under Wine, the initial WM_PAINT arrives before D2D1 is fully
     // initialized, leaving framebuffer garbage visible. Schedule a
     // delayed full redraw to ensure proper rendering.
@@ -144,8 +152,30 @@ bool PLUGIN_API Editor::open (void* parent, const PlatformType& platformType)
     return true;
 }
 
+LRESULT CALLBACK Editor::parentSubclassProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    auto* editor = (Editor*)GetPropA (hwnd, "WineSynthEditor");
+
+    if (msg == WM_ERASEBKGND)
+        return 1;
+
+    if (editor && editor->origParentWndProc_)
+        return CallWindowProcA (editor->origParentWndProc_, hwnd, msg, wParam, lParam);
+
+    return DefWindowProcA (hwnd, msg, wParam, lParam);
+}
+
 void PLUGIN_API Editor::close ()
 {
+    // Restore original WndProc before tearing down the frame
+    if (parentHwnd_ && origParentWndProc_)
+    {
+        SetWindowLongPtrA (parentHwnd_, GWLP_WNDPROC, (LONG_PTR)origParentWndProc_);
+        RemovePropA (parentHwnd_, "WineSynthEditor");
+        parentHwnd_ = nullptr;
+        origParentWndProc_ = nullptr;
+    }
+
     if (displayTimer)
     {
         displayTimer->stop ();

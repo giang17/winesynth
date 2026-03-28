@@ -3,6 +3,11 @@
 #include "public.sdk/source/vst/vstguieditor.h"
 #include "vstgui/lib/controls/icontrollistener.h"
 
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+
 namespace WineSynth {
 
 class WaveformButton;
@@ -24,12 +29,19 @@ private:
     void selectWaveform (int waveType);
     void flushDisplayUpdate ();
 
+    // WM_ERASEBKGND subclass for parent HWND (Wine white-on-open fix)
+    static LRESULT CALLBACK parentSubclassProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
     static const int kEditorWidth = 620;
     static const int kEditorHeight = 540;
 
     WaveformButton* waveButtons[4] = {};
     WaveformDisplay* waveDisplay = nullptr;
     LiveOscilloscopeView* liveScope = nullptr;
+
+    // Parent HWND subclass state
+    HWND parentHwnd_ = nullptr;
+    WNDPROC origParentWndProc_ = nullptr;
 
     // Deferred display update (avoid redraw conflicts while dragging knobs)
     float pendingCutoff = 1.0f;
