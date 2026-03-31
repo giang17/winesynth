@@ -4,7 +4,7 @@
 #define stringCompanyWeb    "https://github.com/giang17"
 #define stringCompanyEmail  ""
 
-#define stringFileDescription   "WineSynth"
+#define stringFileDescription   "TooltipTest"
 
 #define MAJOR_VERSION_INT   1
 #define SUB_VERSION_INT     0

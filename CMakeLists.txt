@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.25.0)
 
-project(winesynth
+project(tooltip-test
     VERSION 1.0.0.1
-    DESCRIPTION "WineSynth - Mono Oscillator VST3 Plugin"
+    DESCRIPTION "TooltipTest - Tooltip Alpha Compositing Bug Test"
 )
 
 set(vst3sdk_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../vst3sdk")
@@ -41,11 +41,11 @@ set(plugin_sources
 # Required for smtg_target_add_library_main to find dllmain.cpp
 set(public_sdk_SOURCE_DIR "${vst3sdk_SOURCE_DIR}/public.sdk")
 
-smtg_add_vst3plugin(winesynth ${plugin_sources})
+smtg_add_vst3plugin(tooltiptest ${plugin_sources})
 
-target_compile_features(winesynth PUBLIC cxx_std_17)
+target_compile_features(tooltiptest PUBLIC cxx_std_17)
 
-target_link_libraries(winesynth
+target_link_libraries(tooltiptest
     PRIVATE
         sdk
         vstgui_support
@@ -55,7 +55,7 @@ target_link_libraries(winesynth
 )
 
 if(SMTG_WIN)
-    target_link_libraries(winesynth
+    target_link_libraries(tooltiptest
         PRIVATE
             d2d1 dwrite d3d11 dxgi dcomp dwmapi
             shlwapi imm32 opengl32

@@ -2,17 +2,17 @@
 
 #include "public.sdk/source/vst/vstguieditor.h"
 #include "vstgui/lib/controls/icontrollistener.h"
+#include "vstgui/lib/controls/ctextlabel.h"
 
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
 #include <windows.h>
 
-namespace WineSynth {
+namespace TooltipTest {
 
-class WaveformButton;
-class WaveformDisplay;
-class LiveOscilloscopeView;
+class TooltipOverlay;
+class SynthKnobView;
 
 class Editor : public Steinberg::Vst::VSTGUIEditor, public VSTGUI::IControlListener
 {
@@ -26,28 +26,19 @@ public:
     void valueChanged (VSTGUI::CControl* pControl) SMTG_OVERRIDE;
 
 private:
-    void selectWaveform (int waveType);
-    void flushDisplayUpdate ();
-
     // WM_ERASEBKGND subclass for parent HWND (Wine white-on-open fix)
     static LRESULT CALLBACK parentSubclassProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-    static const int kEditorWidth = 620;
-    static const int kEditorHeight = 540;
+    static const int kEditorWidth = 300;
+    static const int kEditorHeight = 250;
 
-    WaveformButton* waveButtons[4] = {};
-    WaveformDisplay* waveDisplay = nullptr;
-    LiveOscilloscopeView* liveScope = nullptr;
+    SynthKnobView* valueKnob = nullptr;
+    TooltipOverlay* tooltipOverlay = nullptr;
+    VSTGUI::CTextLabel* readout = nullptr;
 
     // Parent HWND subclass state
     HWND parentHwnd_ = nullptr;
     WNDPROC origParentWndProc_ = nullptr;
-
-    // Deferred display update (avoid redraw conflicts while dragging knobs)
-    float pendingCutoff = 1.0f;
-    float pendingResonance = 0.0f;
-    bool displayDirty = false;
-    VSTGUI::SharedPointer<VSTGUI::CVSTGUITimer> displayTimer;
 };
 
-} // namespace WineSynth
+} // namespace TooltipTest

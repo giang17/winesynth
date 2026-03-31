@@ -3,7 +3,7 @@
 #include "public.sdk/source/vst/vsteditcontroller.h"
 #include "pluginterfaces/gui/iplugview.h"
 
-namespace WineSynth {
+namespace TooltipTest {
 
 class Controller : public Steinberg::Vst::EditControllerEx1
 {
@@ -18,4 +18,4 @@ public:
     Steinberg::IPlugView* PLUGIN_API createView (const char* name) SMTG_OVERRIDE;
 };
 
-} // namespace WineSynth
+} // namespace TooltipTest

@@ -9,7 +9,7 @@ using namespace Steinberg::Vst;
 
 BEGIN_FACTORY_DEF (stringCompanyName, stringCompanyWeb, stringCompanyEmail)
 
-    DEF_CLASS2 (INLINE_UID_FROM_FUID (WineSynth::ProcessorUID),
+    DEF_CLASS2 (INLINE_UID_FROM_FUID (TooltipTest::ProcessorUID),
                 PClassInfo::kManyInstances,
                 kVstAudioEffectClass,
                 stringFileDescription,
@@ -17,9 +17,9 @@ BEGIN_FACTORY_DEF (stringCompanyName, stringCompanyWeb, stringCompanyEmail)
                 PluginCategory,
                 FULL_VERSION_STR,
                 kVstVersionString,
-                WineSynth::Processor::createInstance)
+                TooltipTest::Processor::createInstance)
 
-    DEF_CLASS2 (INLINE_UID_FROM_FUID (WineSynth::ControllerUID),
+    DEF_CLASS2 (INLINE_UID_FROM_FUID (TooltipTest::ControllerUID),
                 PClassInfo::kManyInstances,
                 kVstComponentControllerClass,
                 stringFileDescription " Controller",
@@ -27,6 +27,6 @@ BEGIN_FACTORY_DEF (stringCompanyName, stringCompanyWeb, stringCompanyEmail)
                 "",
                 FULL_VERSION_STR,
                 kVstVersionString,
-                WineSynth::Controller::createInstance)
+                TooltipTest::Controller::createInstance)
 
 END_FACTORY

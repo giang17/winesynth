@@ -4,17 +4,13 @@
 
 #include "pluginterfaces/base/ibstream.h"
 #include "pluginterfaces/vst/ivstparameterchanges.h"
-#include "pluginterfaces/vst/ivstevents.h"
 #include "base/source/fstreamer.h"
 
 #include <cmath>
 #include <algorithm>
+#include <cstring>
 
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
-
-namespace WineSynth {
+namespace TooltipTest {
 
 using namespace Steinberg;
 using namespace Steinberg::Vst;
@@ -30,29 +26,19 @@ tresult PLUGIN_API Processor::initialize (FUnknown* context)
     if (result != kResultOk)
         return result;
 
+    addAudioInput (STR16 ("Stereo In"), SpeakerArr::kStereo);
     addAudioOutput (STR16 ("Stereo Out"), SpeakerArr::kStereo);
-    addEventInput (STR16 ("Event In"));
 
     return kResultOk;
 }
 
-tresult PLUGIN_API Processor::setActive (TBool state)
+tresult PLUGIN_API Processor::setActive (TBool /*state*/)
 {
-    if (state)
-    {
-        phase = 0.0;
-        envState = kIdle;
-        envLevel = 0.0;
-        noteOn = false;
-        ic1eq = 0.0;
-        ic2eq = 0.0;
-    }
-    return AudioEffect::setActive (state);
+    return kResultOk;
 }
 
 tresult PLUGIN_API Processor::setupProcessing (ProcessSetup& newSetup)
 {
-    sampleRate = newSetup.sampleRate;
     return AudioEffect::setupProcessing (newSetup);
 }
 
@@ -61,24 +47,6 @@ tresult PLUGIN_API Processor::canProcessSampleSize (int32 symbolicSampleSize)
     if (symbolicSampleSize == kSample32)
         return kResultTrue;
     return kResultFalse;
-}
-
-double Processor::generateSample (double ph, int waveform)
-{
-    double t = ph / (2.0 * M_PI);
-    switch (waveform)
-    {
-        case kWaveSine:
-            return sin (ph);
-        case kWaveSaw:
-            return 2.0 * t - 1.0;
-        case kWaveSquare:
-            return t < 0.5 ? 1.0 : -1.0;
-        case kWaveTriangle:
-            return 4.0 * fabs (t - 0.5) - 1.0;
-        default:
-            return sin (ph);
-    }
 }
 
 tresult PLUGIN_API Processor::process (ProcessData& data)
@@ -98,63 +66,24 @@ tresult PLUGIN_API Processor::process (ProcessData& data)
                 {
                     switch (paramQueue->getParameterId ())
                     {
-                        case kGainId:      fGain = (float)value; break;
-                        case kCutoffId:    fCutoff = (float)value; break;
-                        case kFineId:      fFine = (float)value; break;
-                        case kResonanceId: fResonance = (float)value; break;
-                        case kWaveformId:  iWaveform = std::min ((int32)(value * kNumWaveforms), (int32)(kNumWaveforms - 1)); break;
-                        case kAttackId:    fAttack = (float)value; break;
-                        case kReleaseId:   fRelease = (float)value; break;
-                        case kBypassId:    bBypass = (value > 0.5f); break;
+                        case kGainId:   fGain = (float)value; break;
+                        case kBypassId: bBypass = (value > 0.5f); break;
                     }
                 }
             }
         }
     }
 
-    // Process MIDI events
-    if (IEventList* events = data.inputEvents)
-    {
-        int32 numEvents = events->getEventCount ();
-        for (int32 i = 0; i < numEvents; i++)
-        {
-            Event event;
-            if (events->getEvent (i, event) == kResultOk)
-            {
-                if (event.type == Event::kNoteOnEvent)
-                {
-                    // MIDI note to frequency
-                    noteFrequency = 440.0f * powf (2.0f, ((float)event.noteOn.pitch - 69.0f) / 12.0f);
-                    noteOn = true;
-                    envState = kAttack;
-
-                    // Calculate attack rate: 1..1000 ms (exponential)
-                    double attackMs = 1.0 + 999.0 * fAttack * fAttack;
-                    double attackSamples = attackMs * 0.001 * sampleRate;
-                    attackRate = 1.0 / std::max (attackSamples, 1.0);
-                }
-                else if (event.type == Event::kNoteOffEvent)
-                {
-                    noteOn = false;
-                    envState = kRelease;
-
-                    // Calculate release rate: 10..3000 ms (exponential)
-                    double releaseMs = 10.0 + 2990.0 * fRelease * fRelease;
-                    double releaseSamples = releaseMs * 0.001 * sampleRate;
-                    releaseRate = envLevel / std::max (releaseSamples, 1.0);
-                }
-            }
-        }
-    }
-
-    if (data.numOutputs == 0)
+    // No outputs? Nothing to do.
+    if (data.numOutputs == 0 || data.numSamples == 0)
         return kResultOk;
 
     int32 numChannels = data.outputs[0].numChannels;
     int32 numSamples = data.numSamples;
     float** out = data.outputs[0].channelBuffers32;
 
-    if (bBypass || numSamples == 0)
+    // Bypass: silence output
+    if (bBypass)
     {
         for (int32 ch = 0; ch < numChannels; ch++)
             memset (out[ch], 0, numSamples * sizeof (float));
@@ -162,87 +91,39 @@ tresult PLUGIN_API Processor::process (ProcessData& data)
         return kResultOk;
     }
 
-    // Calculate oscillator frequency from MIDI note + fine tuning
-    float fineOffset = (fFine - 0.5f) * 200.0f;  // -100..+100 cent
-    float finalFreq = noteFrequency * powf (2.0f, fineOffset / 1200.0f);
+    // Pass-through with gain
+    bool hasInput = (data.numInputs > 0 && data.inputs[0].channelBuffers32 != nullptr);
 
-    double phaseInc = 2.0 * M_PI * finalFreq / sampleRate;
-
-    // Cytomic SVF filter coefficients (stable at all frequencies)
-    double cutoffHz = 20.0 * pow (1000.0, (double)fCutoff);  // 20..20000 Hz
-    cutoffHz = std::min (cutoffHz, sampleRate * 0.49);
-    double g = tan (M_PI * cutoffHz / sampleRate);
-    double k = 2.0 - 2.0 * (double)fResonance * 0.95;  // damping: 2.0 (no reso) .. 0.1 (max reso)
-    double a1 = 1.0 / (1.0 + g * (g + k));
-    double a2 = g * a1;
-
-    for (int32 s = 0; s < numSamples; s++)
+    for (int32 ch = 0; ch < numChannels; ch++)
     {
-        // Envelope
-        switch (envState)
+        float* dst = out[ch];
+        if (hasInput && ch < data.inputs[0].numChannels)
         {
-            case kAttack:
-                envLevel += attackRate;
-                if (envLevel >= 1.0)
-                {
-                    envLevel = 1.0;
-                    envState = noteOn ? kAttack : kRelease;
-                    if (noteOn) envState = kAttack; // stay at 1.0
-                }
-                break;
-            case kRelease:
-                envLevel -= releaseRate;
-                if (envLevel <= 0.0)
-                {
-                    envLevel = 0.0;
-                    envState = kIdle;
-                }
-                break;
-            case kIdle:
-            default:
-                break;
+            float* src = data.inputs[0].channelBuffers32[ch];
+            for (int32 s = 0; s < numSamples; s++)
+                dst[s] = src[s] * fGain;
         }
-
-        float sample = 0.f;
-        if (envLevel > 0.0)
+        else
         {
-            double raw = generateSample (phase, iWaveform);
-
-            // Cytomic SVF low-pass (topology-preserving transform)
-            double v0 = raw;
-            double hp = a1 * (v0 - k * ic1eq - ic2eq);
-            double bp = a2 * (v0 - k * ic1eq - ic2eq) + ic1eq;
-            double lp = a2 * ic1eq + ic2eq + g * hp;
-            ic1eq = 2.0 * bp - ic1eq;
-            ic2eq = 2.0 * lp - ic2eq;
-
-            sample = (float)(lp * fGain * envLevel);
-            phase += phaseInc;
-            if (phase >= 2.0 * M_PI)
-                phase -= 2.0 * M_PI;
+            memset (dst, 0, numSamples * sizeof (float));
         }
-
-        for (int32 ch = 0; ch < numChannels; ch++)
-            out[ch][s] = sample;
     }
 
-    data.outputs[0].silenceFlags = (envState == kIdle) ? ((1ULL << numChannels) - 1) : 0;
+    data.outputs[0].silenceFlags = 0;
     return kResultOk;
 }
 
 tresult PLUGIN_API Processor::setState (IBStream* state)
 {
     IBStreamer streamer (state, kLittleEndian);
-    float f; int32 i;
+    float f;
+    int32 i;
 
-    if (!streamer.readFloat (f)) return kResultFalse; fGain = f;
-    if (!streamer.readFloat (f)) return kResultFalse; fCutoff = f;
-    if (!streamer.readFloat (f)) return kResultFalse; fFine = f;
-    if (!streamer.readFloat (f)) return kResultFalse; fResonance = f;
-    if (!streamer.readInt32 (i)) return kResultFalse; iWaveform = i;
-    if (!streamer.readFloat (f)) return kResultFalse; fAttack = f;
-    if (!streamer.readFloat (f)) return kResultFalse; fRelease = f;
-    if (!streamer.readInt32 (i)) return kResultFalse; bBypass = i > 0;
+    if (!streamer.readFloat (f)) return kResultFalse;
+    fGain = f;
+
+    if (!streamer.readInt32 (i)) return kResultFalse;
+    bBypass = i > 0;
 
     return kResultOk;
 }
@@ -252,15 +133,9 @@ tresult PLUGIN_API Processor::getState (IBStream* state)
     IBStreamer streamer (state, kLittleEndian);
 
     streamer.writeFloat (fGain);
-    streamer.writeFloat (fCutoff);
-    streamer.writeFloat (fFine);
-    streamer.writeFloat (fResonance);
-    streamer.writeInt32 (iWaveform);
-    streamer.writeFloat (fAttack);
-    streamer.writeFloat (fRelease);
     streamer.writeInt32 (bBypass ? 1 : 0);
 
     return kResultOk;
 }
 
-} // namespace WineSynth
+} // namespace TooltipTest
