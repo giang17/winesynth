@@ -602,7 +602,7 @@ public:
         }
 
         // Draw black keys using bitmaps
-        static const int blackWhitePos[] = { 0, -1, 1, -1, -1, 3, -1, 4, -1, 5, -1, -1 };
+        static const int blackWhitePos[] = { -1, 0, -1, 1, -1, -1, 3, -1, 4, -1, 5, -1 };
         for (int s = 0; s < kNumKeys; s++)
         {
             if (!isBlack[s]) continue;
@@ -740,7 +740,7 @@ private:
         double blackKeyH = r.getHeight () * 0.6;
 
         static const bool isBlack[] = { false, true, false, true, false, false, true, false, true, false, true, false };
-        static const int blackWhitePos[] = { 0, -1, 1, -1, -1, 3, -1, 4, -1, 5, -1, -1 };
+        static const int blackWhitePos[] = { -1, 0, -1, 1, -1, -1, 3, -1, 4, -1, 5, -1 };
 
         if (where.y - r.top < blackKeyH)
         {
