@@ -55,6 +55,10 @@ tresult PLUGIN_API Controller::initialize (FUnknown* context)
     parameters.addParameter (STR16 ("Bypass"), nullptr, 1, 0,
                              ParameterInfo::kCanAutomate | ParameterInfo::kIsBypass, kBypassId);
 
+    // GUI Keyboard note (0=off, 1-12 = C4-B4) — not automatable, GUI-only
+    parameters.addParameter (STR16 ("KeyboardNote"), nullptr, 12, 0,
+                             0, kKeyboardNoteId);
+
     return result;
 }
 

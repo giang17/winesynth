@@ -7,6 +7,8 @@
 #include "vstgui/lib/cgraphicspath.h"
 #include "vstgui/lib/ccolor.h"
 #include "vstgui/lib/cvstguitimer.h"
+#include "vstgui/lib/cbitmap.h"
+#include "vstgui/lib/coffscreencontext.h"
 
 #include <cmath>
 
@@ -527,6 +529,238 @@ private:
     int waveType = kWaveSine;
     double animPhase = 0.0;
     SharedPointer<CVSTGUITimer> timer;
+};
+
+//------------------------------------------------------------------------
+// PianoKeyboardView — one-octave piano keyboard (C4–B4)
+// Uses pre-rendered BITMAPS for normal/highlight states (simulates Serum2)
+//------------------------------------------------------------------------
+
+class PianoKeyboardView : public CControl
+{
+public:
+    static constexpr int kNumWhiteKeys = 7;
+    static constexpr int kNumKeys = 12;
+    static constexpr int kBaseNote = 60; // C4
+    static constexpr int kWhiteKeyBmpW = 80;
+    static constexpr int kWhiteKeyBmpH = 97;
+    static constexpr int kBlackKeyBmpW = 48;
+    static constexpr int kBlackKeyBmpH = 58;
+
+    PianoKeyboardView (const CRect& size, IControlListener* listener, int32_t tag)
+    : CControl (size, listener, tag)
+    {
+        for (int i = 0; i < kNumKeys; i++)
+            keyPressed[i] = false;
+    }
+
+    ~PianoKeyboardView () override
+    {
+        releaseKeyBitmaps ();
+    }
+
+    void setNoteState (int midiNote, bool pressed)
+    {
+        int idx = midiNote - kBaseNote;
+        if (idx >= 0 && idx < kNumKeys && keyPressed[idx] != pressed)
+        {
+            keyPressed[idx] = pressed;
+            invalid ();
+        }
+    }
+
+    void draw (CDrawContext* context) override
+    {
+        // Lazy-init: create key bitmaps on first draw
+        if (!bitmapsCreated)
+            createKeyBitmaps (context);
+
+        CRect r = getViewSize ();
+        double whiteKeyW = r.getWidth () / kNumWhiteKeys;
+        double blackKeyW = whiteKeyW * 0.6;
+        double blackKeyH = r.getHeight () * 0.6;
+
+        static const int whiteKeyIndex[] = { 0, -1, 1, -1, 2, 3, -1, 4, -1, 5, -1, 6 };
+        static const bool isBlack[] = { false, true, false, true, false, false, true, false, true, false, true, false };
+
+        // Draw white keys using bitmaps
+        for (int w = 0; w < kNumWhiteKeys; w++)
+        {
+            CRect keyRect (r.left + w * whiteKeyW, r.top,
+                           r.left + (w + 1) * whiteKeyW, r.bottom);
+
+            int semi = -1;
+            for (int s = 0; s < kNumKeys; s++)
+            {
+                if (!isBlack[s] && whiteKeyIndex[s] == w)
+                { semi = s; break; }
+            }
+
+            CBitmap* bmp = (semi >= 0 && keyPressed[semi]) ? whiteKeyHighlight : whiteKeyNormal;
+            if (bmp)
+                bmp->draw (context, keyRect);
+        }
+
+        // Draw black keys using bitmaps
+        static const int blackWhitePos[] = { 0, -1, 1, -1, -1, 3, -1, 4, -1, 5, -1, -1 };
+        for (int s = 0; s < kNumKeys; s++)
+        {
+            if (!isBlack[s]) continue;
+            int leftWhite = blackWhitePos[s];
+            if (leftWhite < 0) continue;
+
+            double bx = r.left + (leftWhite + 1) * whiteKeyW - blackKeyW / 2.0;
+            CRect keyRect (bx, r.top, bx + blackKeyW, r.top + blackKeyH);
+
+            CBitmap* bmp = keyPressed[s] ? blackKeyHighlight : blackKeyNormal;
+            if (bmp)
+                bmp->draw (context, keyRect);
+        }
+
+        setDirty (false);
+    }
+
+    CMouseEventResult onMouseDown (CPoint& where, const CButtonState& buttons) override
+    {
+        if (!(buttons & kLButton)) return kMouseEventNotHandled;
+        int key = hitTestKey (where);
+        if (key >= 0)
+        {
+            mouseKey = key;
+            keyPressed[key] = true;
+            setValue ((float)(key + 1) / (float)kNumKeys);
+            valueChanged ();
+            invalid ();
+            return kMouseEventHandled;
+        }
+        return kMouseEventNotHandled;
+    }
+
+    CMouseEventResult onMouseUp (CPoint& where, const CButtonState& buttons) override
+    {
+        if (mouseKey >= 0)
+        {
+            keyPressed[mouseKey] = false;
+            setValue (0.0f);
+            valueChanged ();
+            invalid ();
+            mouseKey = -1;
+            return kMouseEventHandled;
+        }
+        return kMouseEventNotHandled;
+    }
+
+    CMouseEventResult onMouseMoved (CPoint& where, const CButtonState& buttons) override
+    {
+        if (mouseKey >= 0 && (buttons & kLButton))
+        {
+            int key = hitTestKey (where);
+            if (key != mouseKey)
+            {
+                keyPressed[mouseKey] = false;
+                if (key >= 0)
+                {
+                    mouseKey = key;
+                    keyPressed[key] = true;
+                    setValue ((float)(key + 1) / (float)kNumKeys);
+                    valueChanged ();
+                }
+                else
+                {
+                    mouseKey = -1;
+                    setValue (0.0f);
+                    valueChanged ();
+                }
+                invalid ();
+            }
+            return kMouseEventHandled;
+        }
+        return kMouseEventNotHandled;
+    }
+
+    CLASS_METHODS_NOCOPY(PianoKeyboardView, CControl)
+
+private:
+    bool keyPressed[kNumKeys] = {};
+    int mouseKey = -1;
+    bool bitmapsCreated = false;
+
+    // Pre-rendered key bitmaps (like Serum2's sprite sheet approach)
+    SharedPointer<CBitmap> whiteKeyNormal;
+    SharedPointer<CBitmap> whiteKeyHighlight;
+    SharedPointer<CBitmap> blackKeyNormal;
+    SharedPointer<CBitmap> blackKeyHighlight;
+
+    void releaseKeyBitmaps ()
+    {
+        whiteKeyNormal = nullptr;
+        whiteKeyHighlight = nullptr;
+        blackKeyNormal = nullptr;
+        blackKeyHighlight = nullptr;
+        bitmapsCreated = false;
+    }
+
+    SharedPointer<CBitmap> makeKeyBitmap (int w, int h, CColor fill, CColor stroke)
+    {
+        return renderBitmapOffscreen (CPoint (w, h), 1.0,
+            [&] (CDrawContext& ctx) {
+                CRect full (0, 0, w, h);
+                ctx.setFillColor (fill);
+                ctx.drawRect (full, kDrawFilled);
+                ctx.setFrameColor (stroke);
+                ctx.setLineWidth (1.0);
+                ctx.drawRect (full, kDrawStroked);
+                // Add a gradient-like highlight bar at top for realism
+                CRect highlight (1, 1, w - 1, 4);
+                ctx.setFillColor (CColor (255, 255, 255, 60));
+                ctx.drawRect (highlight, kDrawFilled);
+            });
+    }
+
+    void createKeyBitmaps (CDrawContext*)
+    {
+        whiteKeyNormal    = makeKeyBitmap (kWhiteKeyBmpW, kWhiteKeyBmpH,
+                                           CColor (230, 230, 230, 255), CColor (60, 60, 60, 255));
+        whiteKeyHighlight = makeKeyBitmap (kWhiteKeyBmpW, kWhiteKeyBmpH,
+                                           CColor (80, 200, 80, 255), CColor (40, 120, 40, 255));
+        blackKeyNormal    = makeKeyBitmap (kBlackKeyBmpW, kBlackKeyBmpH,
+                                           CColor (30, 30, 30, 255), CColor (20, 20, 20, 255));
+        blackKeyHighlight = makeKeyBitmap (kBlackKeyBmpW, kBlackKeyBmpH,
+                                           CColor (60, 150, 60, 255), CColor (40, 100, 40, 255));
+        bitmapsCreated = true;
+    }
+
+    int hitTestKey (const CPoint& where)
+    {
+        CRect r = getViewSize ();
+        if (!r.pointInside (where)) return -1;
+
+        double whiteKeyW = r.getWidth () / kNumWhiteKeys;
+        double blackKeyW = whiteKeyW * 0.6;
+        double blackKeyH = r.getHeight () * 0.6;
+
+        static const bool isBlack[] = { false, true, false, true, false, false, true, false, true, false, true, false };
+        static const int blackWhitePos[] = { 0, -1, 1, -1, -1, 3, -1, 4, -1, 5, -1, -1 };
+
+        if (where.y - r.top < blackKeyH)
+        {
+            for (int s = 0; s < kNumKeys; s++)
+            {
+                if (!isBlack[s]) continue;
+                int leftWhite = blackWhitePos[s];
+                if (leftWhite < 0) continue;
+                double bx = r.left + (leftWhite + 1) * whiteKeyW - blackKeyW / 2.0;
+                if (where.x >= bx && where.x < bx + blackKeyW)
+                    return s;
+            }
+        }
+
+        int whiteIdx = (int)((where.x - r.left) / whiteKeyW);
+        if (whiteIdx < 0 || whiteIdx >= kNumWhiteKeys) return -1;
+
+        static const int whiteToSemi[] = { 0, 2, 4, 5, 7, 9, 11 };
+        return whiteToSemi[whiteIdx];
+    }
 };
 
 } // namespace WineSynth

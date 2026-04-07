@@ -106,6 +106,29 @@ tresult PLUGIN_API Processor::process (ProcessData& data)
                         case kAttackId:    fAttack = (float)value; break;
                         case kReleaseId:   fRelease = (float)value; break;
                         case kBypassId:    bBypass = (value > 0.5f); break;
+                        case kKeyboardNoteId:
+                        {
+                            int noteIdx = (int)(value * 12.0 + 0.5);
+                            if (noteIdx > 0 && noteIdx <= 12)
+                            {
+                                int midiPitch = 60 + noteIdx - 1; // C4=60
+                                noteFrequency = 440.0f * powf (2.0f, ((float)midiPitch - 69.0f) / 12.0f);
+                                noteOn = true;
+                                envState = kAttack;
+                                double attackMs = 1.0 + 999.0 * fAttack * fAttack;
+                                double attackSamples = attackMs * 0.001 * sampleRate;
+                                attackRate = 1.0 / std::max (attackSamples, 1.0);
+                            }
+                            else
+                            {
+                                noteOn = false;
+                                envState = kRelease;
+                                double releaseMs = 10.0 + 2990.0 * fRelease * fRelease;
+                                double releaseSamples = releaseMs * 0.001 * sampleRate;
+                                releaseRate = envLevel / std::max (releaseSamples, 1.0);
+                            }
+                            break;
+                        }
                     }
                 }
             }
@@ -132,11 +155,28 @@ tresult PLUGIN_API Processor::process (ProcessData& data)
                     double attackMs = 1.0 + 999.0 * fAttack * fAttack;
                     double attackSamples = attackMs * 0.001 * sampleRate;
                     attackRate = 1.0 / std::max (attackSamples, 1.0);
+
+                    // Notify GUI keyboard: MIDI pitch → keyboard index
+                    int keyIdx = event.noteOn.pitch - 60; // C4=0
+                    if (keyIdx >= 0 && keyIdx < 12 && data.outputParameterChanges)
+                    {
+                        int32 qidx;
+                        if (auto* q = data.outputParameterChanges->addParameterData (kKeyboardNoteId, qidx))
+                            q->addPoint (event.sampleOffset, (float)(keyIdx + 1) / 12.0f, qidx);
+                    }
                 }
                 else if (event.type == Event::kNoteOffEvent)
                 {
                     noteOn = false;
                     envState = kRelease;
+
+                    // Notify GUI keyboard: note off
+                    if (data.outputParameterChanges)
+                    {
+                        int32 qidx;
+                        if (auto* q = data.outputParameterChanges->addParameterData (kKeyboardNoteId, qidx))
+                            q->addPoint (event.sampleOffset, 0.0f, qidx);
+                    }
 
                     // Calculate release rate: 10..3000 ms (exponential)
                     double releaseMs = 10.0 + 2990.0 * fRelease * fRelease;

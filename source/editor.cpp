@@ -125,6 +125,11 @@ bool PLUGIN_API Editor::open (void* parent, const PlatformType& platformType)
     liveScope = new LiveOscilloscopeView (CRect (20, 443, 600, 523));
     frame->addView (liveScope);
 
+    // --- Piano Keyboard (one octave C4-B4) ---
+    makeLabel (20, 535, 100, "Keyboard");
+    keyboard = new PianoKeyboardView (CRect (20, 553, 600, 650), this, kKeyboardTag);
+    frame->addView (keyboard);
+
     frame->open (parent, platformType);
 
     // Fix 2: Subclass parent HWND to suppress WM_ERASEBKGND (white flash on Wine).
@@ -145,9 +150,20 @@ bool PLUGIN_API Editor::open (void* parent, const PlatformType& platformType)
     if (liveScope)
         liveScope->start ();
 
-    // Timer for deferred waveform display updates (~15 fps)
+    // Timer for deferred waveform display + MIDI keyboard highlight (~15 fps)
     displayTimer = makeOwned<CVSTGUITimer> ([this] (CVSTGUITimer*) {
         flushDisplayUpdate ();
+
+        // Poll keyboard note parameter for MIDI highlight feedback
+        if (keyboard && controller)
+        {
+            float noteVal = controller->getParamNormalized (kKeyboardNoteId);
+            int noteIdx = (int)(noteVal * 12.0f + 0.5f);
+
+            // Update all keys: set pressed state from MIDI
+            for (int i = 0; i < 12; i++)
+                keyboard->setNoteState (60 + i, (i + 1) == noteIdx);
+        }
     }, 66);
 
     return true;
@@ -222,6 +238,17 @@ void Editor::valueChanged (CControl* pControl)
     {
         int waveType = tag - kWaveBtnTagBase;
         selectWaveform (waveType);
+        return;
+    }
+
+    // GUI keyboard: send note parameter
+    if (tag == kKeyboardTag)
+    {
+        float value = pControl->getValue ();
+        controller->beginEdit (kKeyboardNoteId);
+        controller->setParamNormalized (kKeyboardNoteId, value);
+        controller->performEdit (kKeyboardNoteId, value);
+        controller->endEdit (kKeyboardNoteId);
         return;
     }
 

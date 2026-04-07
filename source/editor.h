@@ -13,6 +13,7 @@ namespace WineSynth {
 class WaveformButton;
 class WaveformDisplay;
 class LiveOscilloscopeView;
+class PianoKeyboardView;
 
 class Editor : public Steinberg::Vst::VSTGUIEditor, public VSTGUI::IControlListener
 {
@@ -33,11 +34,12 @@ private:
     static LRESULT CALLBACK parentSubclassProc (HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
     static const int kEditorWidth = 620;
-    static const int kEditorHeight = 540;
+    static const int kEditorHeight = 670;
 
     WaveformButton* waveButtons[4] = {};
     WaveformDisplay* waveDisplay = nullptr;
     LiveOscilloscopeView* liveScope = nullptr;
+    PianoKeyboardView* keyboard = nullptr;
 
     // Parent HWND subclass state
     HWND parentHwnd_ = nullptr;

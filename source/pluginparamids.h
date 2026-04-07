@@ -8,7 +8,9 @@ enum {
     kWaveformId,
     kAttackId,
     kReleaseId,
-    kBypassId
+    kBypassId,
+    kKeyboardNoteId,   // GUI keyboard note (0=off, 1-12=note C4-B4)
+    kKeyboardTag = 100
 };
 
 enum WaveformType {
